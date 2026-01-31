@@ -3,3 +3,10 @@
 
 main :: IO ()
 main = putStrLn "Hola, mundo funcional"
+
+--comentarios
+
+{-
+ Barra de comentarios
+-}
+
