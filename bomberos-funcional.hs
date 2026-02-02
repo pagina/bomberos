@@ -77,64 +77,245 @@
 --analizar primero cercania de cuarteles, cuando dos están
 --cerca se decide con el que dispone de recursos necesarios.
 
+--es para que cuando se quiere mostrar algo por pantalla que 
+--tenga acentos muestre los acentos
 
-recursosPorCategoria :: [(String, [String])]
-recursosPorCategoria =
-  [ ("A",
-     ["mangueras 38mm","mangueras 45mm","Lanzas regulables","Halligan","Hacha","Barreta",
-      "Cámaras térmicas","Ventilador hidráulico o eléctrico","Iluminación portátil"])
+import System.Random (randomRIO)
 
-  , ("B",
-     ["Espuma AFFF","Proporcionador de espuma","Lanzas aptas para espuma",
-      "Tapones y obturadores","Detectores de gases inflamables","Material absorbente"])
+data ClaseIncendio = A | B | C | D | FK
+  deriving (Eq, Show)
 
-  , ("C",
-     ["Matafuegos de CO₂","Matafuegos PQS","Guantes dieléctricos","Pértiga aislante",
-      "Detector de tensión","Coordinación con empresa eléctrica"])
+data Zona
+  = Suroeste
+  | Sudeste
+  | Oeste
+  | CentroNorte
+  | Noroeste
+  | Centro
+  deriving (Eq, Show)
 
-  , ("D",
-     ["Agentes extintores Clase D","Palas metálicas","Arena seca","Contención térmica"])
+data Cuartel = Cuartel
+  { nombre   :: String
+  , zona     :: Zona
+  , barrios  :: [Barrio]
+  , recursos :: [Recurso]
+  , personal :: Int
+  } deriving (Show)
 
-  , ("F-K",
-     ["Matafuegos Clase K","Mantas ignífugas","Procedimientos claros de ataque"])
+
+type Recurso = String
+recursosPorClase :: [(ClaseIncendio, [Recurso])]
+recursosPorClase =
+  [ (A,
+     ["Mangueras 38mm","Mangueras 45mm","Lanzas regulables",
+      "Halligan","Hacha","Barreta","Cámara térmica",
+      "Ventilador","Iluminación portátil"])
+
+  , (B,
+     ["Espuma AFFF","Proporcionador de espuma","Lanzas espuma",
+      "Tapones","Detector de gases","Material absorbente"])
+
+  , (C,
+     ["CO₂","PQS","Guantes dieléctricos","Pértiga","Detector tensión"])
+
+  , (D,
+     ["Agente Clase D","Palas","Arena seca","Contención térmica"])
+
+  , (FK,
+     ["Matafuegos K","Mantas ignífugas","Procedimiento de ataque"])
   ]
 
+type Barrio = String
+barriosPorZona :: [(Zona, [Barrio])]
+barriosPorZona =
+  [ (Suroeste, ["Villa Lugano","Albariño"])
+  , (Sudeste, ["Parque Patricios","Nueva Pompeya","Barracas","La Boca"])
+  , (Oeste, ["Nueva Chicago","Mataderos","Liniers","Vélez Sarsfield","Versalles","Villa Devoto"])
+  , (CentroNorte, ["Villa Crespo","Flores"])
+  , (Noroeste, ["Belgrano","Villa Urquiza","Palermo","Chacarita","Saavedra"])
+  , (Centro, ["Recoleta","Once","Balvanera","Retiro","Caballito"])
+  ]
 
--- en el valor que va a tener la funcion hay que aclararlo bien.
-cuartel :: [(String, String, [String])]
-cuartel = [
-("Estación X Lugano","Suroeste",["A","B","C"]),
-("Estación XI Albariño","Suroeste",["A","B"]),
-("Estación VIII Nueva Chicago","Oeste",["A","B","C","D","F-K"]),
-("Destacamento Vélez Sarsfield","Oeste",["A","B","C"]),
-("Estación IX Versalles","Oeste",["A","B","C","D"]),
-("Destacamento Villa Devoto","Oeste",["A","B","C"]),
-("Estación VI Villa Crespo", "Centro-Norte", ["A","B"]),
-("Estación VII Flores", "Centro-Norte", ["A","B","C","D"]),
-("Estación V Belgrano","Noroeste",["A","B","C"]),
-("Destacamento Urquiza","Noroeste",["A","B"]),
-("Destacamento Palermo","Noroeste",["A","B","C","D","F-K"]),
-("Destacamento Chacarita","Noroeste",["A","B","C","D"]),
-("Destacamento G.E.R. Saavedra","Noroeste",["A","B","C"]),
-("Estación IV Recoleta","Centro",["A","B"]),
-("Destacamento Once","Centro",["A","B","C","D"]),
-("Destacamento Retiro","Centro",["A","B","C"]),
-("Destacamento G.E.R. Caballito","Centro",["A","B","C","D","F-K"]),
-("Destacamento La Boca","Sudeste",["A","B"]),
-("Estación III Barracas","Sudeste",["A","B"]),
-("Destacamento Nueva Pompeya","Sudeste",["A","B","C","D","F-K"]),
-("Estación II Patricios","Sudeste",["A","B","C","D","F-K"])]
+cuarteles :: [Cuartel]
+cuarteles =
+  -- ZONA SUR / SUDESTE
+  [ Cuartel
+      "Estación II Patricios"
+      Sudeste
+      ["Parque Patricios"]
+      (recursosClase A ++ recursosClase B)
+      18
+  , Cuartel
+      "Destacamento Nueva Pompeya"
+      Sudeste
+      ["Nueva Pompeya"]
+      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
+      14
+  , Cuartel
+      "Estación III Barracas"
+      Sudeste
+      ["Barracas"]
+      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
+      20
+  , Cuartel
+      "Destacamento La Boca"
+      Sudeste
+      ["La Boca"]
+      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D)
+      15
 
-barriosPorZonas :: [(String, [String])]
-barriosPorZonas =
-  [ ("Suroeste", ["Villa Lugano","Albariño"])
-  , ("Sudeste", ["Parque Patricios","Nueva Pompeya","Barracas","La Boca"])
-  , ("Oeste", ["Nueva Chicago","Vélez Sarsfield","Versalles","Villa Devoto"])
-  , ("Centro-Norte", ["Villa Crespo","Flores"])
-  , ("Noroeste", ["Belgrano","Villa Urquiza","Palermo","Chacarita","Saavedra"])
-  , ("Centro", ["Recoleta","Once","Retiro","Caballito"])]
+  -- ZONA CENTRO
+  , Cuartel
+      "Estación IV Recoleta"
+      Centro
+      ["Recoleta"]
+      (recursosClase A ++ recursosClase B ++ recursosClase C)
+      22
+  , Cuartel
+      "Destacamento Once"
+      Centro
+      ["Once","Balvanera"]
+      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
+      16
+  , Cuartel
+      "Destacamento Retiro"
+      Centro
+      ["Retiro"]
+      (recursosClase A ++ recursosClase C)
+      14
+  , Cuartel
+      "Destacamento G.E.R. Caballito"
+      Centro
+      ["Caballito"]
+      (recursosClase FK ++ recursosClase B)
+      18
+
+  -- ZONA NORTE / NOROESTE
+  , Cuartel
+      "Estación V Belgrano"
+      Noroeste
+      ["Belgrano"]
+      (recursosClase A ++ recursosClase C)
+      22
+  , Cuartel
+      "Destacamento Villa Urquiza"
+      Noroeste
+      ["Villa Urquiza"]
+      (recursosClase A ++ recursosClase FK)
+      18
+  , Cuartel
+      "Destacamento Palermo"
+      Noroeste
+      ["Palermo"]
+      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
+      20
+  , Cuartel
+      "Destacamento Chacarita"
+      Noroeste
+      ["Chacarita"]
+      (recursosClase A ++ recursosClase B ++ recursosClase FK)
+      17
+  , Cuartel
+      "Destacamento G.E.R. Saavedra"
+      Noroeste
+      ["Saavedra"]
+      (recursosClase A ++ recursosClase C)
+      16
 
 
---porque elem devuelve un booleano
-matcheoBarrio :: String -> barriosPorZonas -> Bool
-matcheoBarrio barrio s = elem barrio s
+  -- ZONA CENTRO-NORTE / OESTE CERCANO
+  , Cuartel
+      "Estación VI Villa Crespo"
+      CentroNorte
+      ["Villa Crespo"]
+      (recursosClase A ++ recursosClase B ++ recursosClase C)
+      19
+  , Cuartel
+      "Estación VII Flores"
+      CentroNorte
+      ["Flores"]
+      (recursosClase A ++ recursosClase D ++ recursosClase FK)
+      21
+
+  -- ZONA OESTE / NOROESTE LEJANO
+  , Cuartel
+      "Estación VIII Nueva Chicago"
+      Oeste
+      ["Nueva Chicago","Mataderos","Liniers"]
+      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
+      20
+  , Cuartel
+      "Destacamento Vélez Sarsfield"
+      Oeste
+      ["Vélez Sarsfield","Floresta"]
+      (recursosClase A ++ recursosClase D ++ recursosClase FK)
+      15
+  , Cuartel
+      "Estación IX Versalles"
+      Oeste
+      ["Versalles"]
+      (recursosClase B ++ recursosClase FK)
+      19
+
+  , Cuartel
+      "Destacamento Villa Devoto"
+      Oeste
+      ["Villa Devoto"]
+      (recursosClase A)
+      20
+  
+  , Cuartel
+      "Estación X Lugano"
+      Suroeste
+      ["Villa Lugano"]
+      (recursosClase A ++ recursosClase B)
+      20
+  , Cuartel
+      "Estación XI Albariño"
+      Suroeste
+      ["Albariño"]
+      (recursosClase C ++ recursosClase D ++ recursosClase FK)
+      20]
+
+matcheoBarrioZona :: Barrio -> [(Zona, [Barrio])] -> Maybe Zona
+matcheoBarrioZona _ [] = Nothing
+matcheoBarrioZona barrio ((z, bs):rbs)
+  | elem barrio bs = Just z
+  | otherwise = matcheoBarrioZona barrio rbs
+
+recursosClase :: ClaseIncendio -> [Recurso]
+recursosClase clase =
+  case filter (\(c, _) -> c == clase) recursosPorClase of
+    [(_, rs)] -> rs
+    _         -> []
+
+--MOSTRAR RECURSOS DE FORMA MÁS LEGIBLE
+mostrarRecursosClase :: ClaseIncendio -> IO ()
+mostrarRecursosClase clase =
+  mapM_ putStrLn (recursosClase clase)
+
+--filtra los cuarteles por barrio
+cuartelesPorBarrio :: Barrio -> [Cuartel]
+cuartelesPorBarrio b =
+  filter (\c -> b `elem` barrios c) cuarteles
+
+--Se queda solo con los cuarteles que tienen TODOS los recursos 
+--necesarios para la clase de incendio
+cuartelesConRecursos :: ClaseIncendio -> [Cuartel] -> [Cuartel]
+cuartelesConRecursos clase =
+  filter (\c -> all (`elem` recursos c) (recursosClase clase))
+
+--Decide que cuartel acude a incendio
+--decidirCuartel :: Barrio -> ClaseIncendio -> Maybe Cuartel
+--decidirCuartel barrio clase =
+--  case cuartelesConRecursos clase (cuartelesPorBarrio barrio) of
+--    []    -> Nothing
+--    (c:_) -> Just c
+
+decidirCuartel :: Barrio -> ClaseIncendio -> IO (Maybe Cuartel)
+decidirCuartel barrio clase =
+  case cuartelesConRecursos clase (cuartelesPorBarrio barrio) of
+    [] -> return Nothing
+    cs -> do
+      i <- randomRIO (0, length cs - 1)
+      return (Just (cs !! i))
