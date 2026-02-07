@@ -78,7 +78,7 @@
 --analizar primero cercania de cuarteles, cuando dos están
 --cerca se decide con el que dispone de recursos necesarios.
 
-
+--MAL
 recursosPorCategoria :: [(String, [String])]
 recursosPorCategoria =
   [ ("A",
