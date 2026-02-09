@@ -1,4 +1,3 @@
-
 --Analizo que cuartel enviar.
 
 --Podria hacer una función en la cual devuelve 
