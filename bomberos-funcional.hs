@@ -1,321 +1,195 @@
---Analizo que cuartel enviar.
-
---Podria hacer una función en la cual devuelve 
---aleatoriamente en que barrio sucede el incidente
---que amerita con urgencia la atención de los bomberos
---y grado del incendio utilizamos los códigos que usan
--- los bomberos
-
---Tipos de Incendios y Grados de Peligro:
---Clase A (Sólidos): Incendios de materiales combustibles comunes como madera, papel, telas.
---Clase B (Líquidos/Gases): Incendios de combustibles líquidos como gasolina, pinturas, alcoholes.
---Clase C (Eléctricos): Incendios que involucran equipos eléctricos energizados (transformadores, motores).
---Clase D (Metales): Incendios de metales inflamables como magnesio o aluminio.
---Clase F/K (Cocina): Aceites y grasas vegetales o animales. 
-
---RECURSOS QUE DEBEN TENER POR CLASE
-
--- Incendios Clase A (estructurales / sólidos)
---Recursos obligatorios:
---Mangueras de:
---38 mm
---45 mm
---Lanzas regulables (chorro pleno / niebla)
---Herramientas de entrada forzada:
---Halligan
---Hacha
---Barreta
---Cámaras térmicas (MUY importante)
---Ventilador hidráulico o eléctrico
---Iluminación portátil
-
---Riesgos cubiertos:
---Flashover
---Colapso
---Visibilidad nula
-
--- Incendios Clase B (líquidos y gases)
---Recursos sí o sí:
---Espuma AFFF o equivalente
---Proporcionador de espuma
---Lanzas aptas para espuma
---Tapones y obturadores
---Detectores de gases inflamables
---Material absorbente
--- Sin espuma → no se controla un incendio Clase B
-
--- Incendios Clase C (eléctricos)
---Recursos obligatorios:
---Matafuegos de CO₂
---Matafuegos PQS
---Guantes dieléctricos
---Pértiga aislante
---Detector de tensión
---Coordinación con empresa eléctrica
--- Prohibido agua sin corte de energía
-
--- Incendios Clase D (metales)
---(Alta peligrosidad – poco frecuentes, pero críticos)
-
---Recursos mínimos:
---Agentes extintores Clase D
---Palas metálicas
---Arena seca
---Contención térmica
--- Agua = reacción violenta
-
--- Incendios Clase F / K (cocinas)
---Recursos obligatorios:
---Matafuegos Clase K
---Mantas ignífugas
---Procedimientos claros de ataque
-
-
--- Funcion que decide que cuartel enviar en base a lugar 
---del hecho.
-
---analizar primero cercania de cuarteles, cuando dos están
---cerca se decide con el que dispone de recursos necesarios.
-
---es para que cuando se quiere mostrar algo por pantalla que 
---tenga acentos muestre los acentos
-
-import System.Random (randomRIO)
+import Data.List (sortOn)
+------------------------------TIPOS Y ENTIDADES-----------------------------------
+type Barrio = String
+type Recurso = String
+type Coordenada = (Int, Int)
 
 data ClaseIncendio = A | B | C | D | FK
   deriving (Eq, Show)
 
-data Zona
-  = Suroeste
-  | Sudeste
-  | Oeste
-  | CentroNorte
-  | Noroeste
-  | Centro
+data Zona = Suroeste | Sudeste | Oeste | CentroNorte | Noroeste | Centro
+  deriving (Eq, Show)
+
+data Estado = Libre | Ocupado
   deriving (Eq, Show)
 
 data Cuartel = Cuartel
   { nombre   :: String
   , zona     :: Zona
-  , barrios  :: [Barrio]
+  , barrio   :: Barrio
+  , coord    :: Coordenada
   , recursos :: [Recurso]
   , personal :: Int
+  , estado   :: Estado
+  } deriving (Show, Eq)
+
+--incendio que reporta un usuario
+data Incendio = Incendio
+  { coordIncendio :: Coordenada
+  , clase         :: ClaseIncendio
   } deriving (Show)
 
+---------------------------------------------------------------------------
 
-type Recurso = String
-recursosPorClase :: [(ClaseIncendio, [Recurso])]
-recursosPorClase =
-  [ (A,
-     ["Mangueras 38mm","Mangueras 45mm","Lanzas regulables",
-      "Halligan","Hacha","Barreta","Cámara térmica",
-      "Ventilador","Iluminación portátil"])
+-- RECURSOS POR CLASE
+recursosPorClase :: ClaseIncendio -> [Recurso]
+recursosPorClase A  = ["Mangueras","Lanzas","Halligan","Camara termica"]
+recursosPorClase B  = ["Espuma","Detector gases","Material absorbente"]
+recursosPorClase C  = ["CO2","Guantes dielectricos","Pertiga"]
+recursosPorClase D  = ["Agente D","Arena seca","Contencion termica"]
+recursosPorClase FK = ["Matafuegos K","Mantas ignifugas"]
 
-  , (B,
-     ["Espuma AFFF","Proporcionador de espuma","Lanzas espuma",
-      "Tapones","Detector de gases","Material absorbente"])
 
-  , (C,
-     ["CO₂","PQS","Guantes dieléctricos","Pértiga","Detector tensión"])
-
-  , (D,
-     ["Agente Clase D","Palas","Arena seca","Contención térmica"])
-
-  , (FK,
-     ["Matafuegos K","Mantas ignífugas","Procedimiento de ataque"])
-  ]
-
-type Barrio = String
-barriosPorZona :: [(Zona, [Barrio])]
-barriosPorZona =
-  [ (Suroeste, ["Villa Lugano","Albariño"])
-  , (Sudeste, ["Parque Patricios","Nueva Pompeya","Barracas","La Boca"])
-  , (Oeste, ["Nueva Chicago","Mataderos","Liniers","Vélez Sarsfield","Versalles","Villa Devoto"])
-  , (CentroNorte, ["Villa Crespo","Flores"])
-  , (Noroeste, ["Belgrano","Villa Urquiza","Palermo","Chacarita","Saavedra"])
-  , (Centro, ["Recoleta","Once","Balvanera","Retiro","Caballito"])
-  ]
+-- CUARTELES (COORDENADAS SIMULADAS)
 
 cuarteles :: [Cuartel]
 cuarteles =
-  -- ZONA SUR / SUDESTE
-  [ Cuartel
-      "Estación II Patricios"
-      Sudeste
-      ["Parque Patricios"]
-      (recursosClase A ++ recursosClase B)
-      18
+  [ Cuartel "Patricios" Sudeste "Parque Patricios" (1,1) (recursosPorClase A ++ recursosPorClase B) 18 Libre
+  , Cuartel "Barracas" Sudeste "Barracas" (2,1) (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C) 20 Libre
+  , Cuartel "Destacamento Nueva Pompeya" Sudeste "Nueva Pompeya" (3,4) (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C ++ recursosPorClase D ++ recursosPorClase FK) 14 Libre
   , Cuartel
-      "Destacamento Nueva Pompeya"
-      Sudeste
-      ["Nueva Pompeya"]
-      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
-      14
+      "Destacamento La Boca" Sudeste "La Boca" (3,4)
+      (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C ++ recursosPorClase D)
+      15 Libre
+  , Cuartel "Recoleta" Centro "Recoleta" (3,4) (recursosPorClase A ++ recursosPorClase C) 22 Libre
+  , Cuartel "Palermo" Noroeste "Palermo" (5,5) (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C ++ recursosPorClase D ++ recursosPorClase FK) 20 Libre
+  , Cuartel "Chacarita" Noroeste "Chacarita" (4,5) (recursosPorClase A ++ recursosPorClase FK) 17 Libre
+   , Cuartel
+      "Estación V Belgrano" Noroeste "Belgrano" (4,2)
+      (recursosPorClase A ++ recursosPorClase C)
+      22 Libre
   , Cuartel
-      "Estación III Barracas"
-      Sudeste
-      ["Barracas"]
-      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
-      20
+      "Destacamento Villa Urquiza" Noroeste "Villa Urquiza" (2,2)
+      (recursosPorClase A ++ recursosPorClase FK)
+      18 Libre
   , Cuartel
-      "Destacamento La Boca"
-      Sudeste
-      ["La Boca"]
-      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D)
-      15
-
-  -- ZONA CENTRO
-  , Cuartel
-      "Estación IV Recoleta"
-      Centro
-      ["Recoleta"]
-      (recursosClase A ++ recursosClase B ++ recursosClase C)
-      22
+      "Destacamento G.E.R. Saavedra" Noroeste "Saavedra" (1,1)
+      (recursosPorClase A ++ recursosPorClase C)
+      16 Libre
+  , Cuartel "Caballito" Centro "Caballito" (3,3) 
+  (recursosPorClase B ++ recursosPorClase FK) 18 Ocupado  
   , Cuartel
       "Destacamento Once"
       Centro
-      ["Once","Balvanera"]
-      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
+      "Balvanera" (3,5) 
+      (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C ++ recursosPorClase D ++ recursosPorClase FK)
       16
+      Libre
   , Cuartel
       "Destacamento Retiro"
       Centro
-      ["Retiro"]
-      (recursosClase A ++ recursosClase C)
+      "Retiro" (1,1)
+      (recursosPorClase A ++ recursosPorClase C)
       14
+      Libre
+       , Cuartel
+      "Estación VI Villa Crespo" CentroNorte "Villa Crespo" (4,1)
+      (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C)
+      19 Libre
   , Cuartel
-      "Destacamento G.E.R. Caballito"
-      Centro
-      ["Caballito"]
-      (recursosClase FK ++ recursosClase B)
-      18
-
-  -- ZONA NORTE / NOROESTE
-  , Cuartel
-      "Estación V Belgrano"
-      Noroeste
-      ["Belgrano"]
-      (recursosClase A ++ recursosClase C)
-      22
-  , Cuartel
-      "Destacamento Villa Urquiza"
-      Noroeste
-      ["Villa Urquiza"]
-      (recursosClase A ++ recursosClase FK)
-      18
-  , Cuartel
-      "Destacamento Palermo"
-      Noroeste
-      ["Palermo"]
-      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
-      20
-  , Cuartel
-      "Destacamento Chacarita"
-      Noroeste
-      ["Chacarita"]
-      (recursosClase A ++ recursosClase B ++ recursosClase FK)
-      17
-  , Cuartel
-      "Destacamento G.E.R. Saavedra"
-      Noroeste
-      ["Saavedra"]
-      (recursosClase A ++ recursosClase C)
-      16
-
-
-  -- ZONA CENTRO-NORTE / OESTE CERCANO
-  , Cuartel
-      "Estación VI Villa Crespo"
-      CentroNorte
-      ["Villa Crespo"]
-      (recursosClase A ++ recursosClase B ++ recursosClase C)
-      19
-  , Cuartel
-      "Estación VII Flores"
-      CentroNorte
-      ["Flores"]
-      (recursosClase A ++ recursosClase D ++ recursosClase FK)
+      "Estación VII Flores" CentroNorte "Flores" (1,5)
+      (recursosPorClase A ++ recursosPorClase D ++ recursosPorClase FK)
       21
-
-  -- ZONA OESTE / NOROESTE LEJANO
-  , Cuartel
+      Ocupado
+      , Cuartel
       "Estación VIII Nueva Chicago"
       Oeste
-      ["Nueva Chicago","Mataderos","Liniers"]
-      (recursosClase A ++ recursosClase B ++ recursosClase C ++ recursosClase D ++ recursosClase FK)
-      20
+      "Liniers" (1,5)
+      (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C ++ recursosPorClase D ++ recursosPorClase FK)
+      20 Libre
   , Cuartel
       "Destacamento Vélez Sarsfield"
       Oeste
-      ["Vélez Sarsfield","Floresta"]
-      (recursosClase A ++ recursosClase D ++ recursosClase FK)
-      15
+      "Vélez Sarsfield" (1,4)
+      (recursosPorClase A ++ recursosPorClase D ++ recursosPorClase FK)
+      15 Libre
   , Cuartel
       "Estación IX Versalles"
       Oeste
-      ["Versalles"]
-      (recursosClase B ++ recursosClase FK)
-      19
-
+      "Versalles" (1,1)
+      (recursosPorClase B ++ recursosPorClase FK)
+      19 Ocupado
   , Cuartel
       "Destacamento Villa Devoto"
       Oeste
-      ["Villa Devoto"]
-      (recursosClase A)
-      20
-  
+      "Villa Devoto" (2,2)
+      (recursosPorClase A)
+      20 Libre
   , Cuartel
-      "Estación X Lugano"
-      Suroeste
-      ["Villa Lugano"]
-      (recursosClase A ++ recursosClase B)
-      20
+      "Estación X Lugano" Suroeste "Villa Lugano" (2,2)
+      (recursosPorClase A ++ recursosPorClase B)
+      20 Libre
   , Cuartel
       "Estación XI Albariño"
       Suroeste
-      ["Albariño"]
-      (recursosClase C ++ recursosClase D ++ recursosClase FK)
-      20]
+      "Albariño" (2,3)
+      (recursosPorClase C ++ recursosPorClase D ++ recursosPorClase FK)
+      20 Ocupado]
 
-matcheoBarrioZona :: Barrio -> [(Zona, [Barrio])] -> Maybe Zona
-matcheoBarrioZona _ [] = Nothing
-matcheoBarrioZona barrio ((z, bs):rbs)
-  | elem barrio bs = Just z
-  | otherwise = matcheoBarrioZona barrio rbs
+-- distancia manhattan ideal para entornos urbanos de cuadrícula porque 
+--representa la distancia total recorrida  al moverse solo horizontal y 
+--verticalmente, evitando cortar por manzana.
 
-recursosClase :: ClaseIncendio -> [Recurso]
-recursosClase clase =
-  case filter (\(c, _) -> c == clase) recursosPorClase of
-    [(_, rs)] -> rs
-    _         -> []
+-- distancia lo que hace es restar las coordenadas del incendio menos la distancia
+-- de las coordenadas de un cuartel y devuelve la distancia a la que estan. 
+distancia :: Coordenada -> Coordenada -> Int
+distancia (x1,y1) (x2,y2) =
+  abs (x1-x2) + abs (y1-y2)
 
---MOSTRAR RECURSOS DE FORMA MÁS LEGIBLE
-mostrarRecursosClase :: ClaseIncendio -> IO ()
-mostrarRecursosClase clase =
-  mapM_ putStrLn (recursosClase clase)
+--Si devuelve 0 el cuartel esta disponible, sino devuelve 1
+estadoCuartel :: Cuartel -> Bool 
+estadoCuartel (Cuartel _ _ _ _ _ _ e) =  if e == Libre then True
+                                         else False
 
---filtra los cuarteles por barrio
-cuartelesPorBarrio :: Barrio -> [Cuartel]
-cuartelesPorBarrio b =
-  filter (\c -> b `elem` barrios c) cuarteles
+--evalua si todos los recursos de la clase del incendio estan en inventario 
+verificarRecursos :: ClaseIncendio -> Cuartel -> Bool 
+verificarRecursos clase (Cuartel _ _ _ _ inventario _ _) = 
+  all (`elem` inventario) (recursosPorClase clase)
 
---Se queda solo con los cuarteles que tienen TODOS los recursos 
---necesarios para la clase de incendio
+--calculo la distancia de un cuartel respecto a cierta coordenada
+distanciaCuartel :: Coordenada -> Cuartel -> Int
+distanciaCuartel (x,y) (Cuartel _ _ _ c _ _ _) = distancia (x,y) c
+
+cambiarEstado :: Cuartel -> Cuartel
+cambiarEstado (Cuartel n z b c r p _) =
+  Cuartel n z b c r p Ocupado
+
+-- muestra todos cuarteles Libres
+cuartelesDisponibles :: [Cuartel] -> [Cuartel]
+cuartelesDisponibles = filter estadoCuartel
+
+-- filtra los cuarteles que cumplen con la clase del incendio
 cuartelesConRecursos :: ClaseIncendio -> [Cuartel] -> [Cuartel]
-cuartelesConRecursos clase =
-  filter (\c -> all (`elem` recursos c) (recursosClase clase))
+cuartelesConRecursos clase = filter (verificarRecursos clase)
 
---Decide que cuartel acude a incendio
---decidirCuartel :: Barrio -> ClaseIncendio -> Maybe Cuartel
---decidirCuartel barrio clase =
---  case cuartelesConRecursos clase (cuartelesPorBarrio barrio) of
---    []    -> Nothing
---    (c:_) -> Just c
+-- Ordena cada cuartel segun la distancia que devuelve la distancia de tal coordenada
+-- con la del cuartel
+ordenarPorDistancia :: Coordenada -> [Cuartel] -> [Cuartel]
+ordenarPorDistancia coord =
+  sortOn (distanciaCuartel coord) 
 
-decidirCuartel :: Barrio -> ClaseIncendio -> IO (Maybe Cuartel)
-decidirCuartel barrio clase =
-  case cuartelesConRecursos clase (cuartelesPorBarrio barrio) of
-    [] -> return Nothing
-    cs -> do
-      i <- randomRIO (0, length cs - 1)
-      return (Just (cs !! i))
+-- selección óptima del mejor cuartel
+mejorCuartel :: Incendio -> [Cuartel] -> Maybe Cuartel
+mejorCuartel (Incendio coord claseInc) cs =
+  case ordenarPorDistancia coord
+        (cuartelesConRecursos claseInc -- en el caso de que haya cuarteles con 
+        --recursos y disp, llama a ordenarPorDistancia coord 
+        --(le pasa los cuarteles que cumplieron las 2 caracteristicas y busca el de menor dist)
+        (cuartelesDisponibles cs)) of
+    []    -> Nothing -- Si no hay cuartel optimo: Nothing
+    (c:_) -> Just c -- Si hay: Just Cuartel
+
+resolverIncendios :: [Incendio] -> [Cuartel] -> [(Incendio, Maybe Cuartel)]
+resolverIncendios [] _ = []
+resolverIncendios (i:is) cs =
+  let elegido = mejorCuartel i cs  --elige el mejor cuartel  
+  in (i, elegido) : resolverIncendios is cs -- y a la par que la construyo llamo recursivamente a la funcion para que evalue el resto de incendios
+  -- construyo una lista de tuplas que se van a leer asi [(Incendio, Maybe Cuartel): resto]
+
+incendiosHoy :: [Incendio]
+incendiosHoy =
+  [ Incendio (2,1) A   
+  , Incendio (5,5) C   
+  , Incendio (3,3) B   
+  , Incendio (1,1) B   
+  ]
