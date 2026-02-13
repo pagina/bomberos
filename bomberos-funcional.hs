@@ -1,8 +1,9 @@
-import Data.List (sortOn)
-------------------------------TIPOS Y ENTIDADES-----------------------------------
-type Barrio = String
+import Data.List (sortOn, intersect)
+
+------------------------------TIPOS Y Clases de tipo-----------------------------------
+type Barrio = String 
 type Recurso = String
-type Coordenada = (Int, Int)
+type Coordenada = (Float, Float)
 
 data ClaseIncendio = A | B | C | D | FK
   deriving (Eq, Show)
@@ -30,20 +31,10 @@ data Incendio = Incendio
   } deriving (Show)
 
 ---------------------------------------------------------------------------
-
--- RECURSOS POR CLASE
-recursosPorClase :: ClaseIncendio -> [Recurso]
-recursosPorClase A  = ["Mangueras","Lanzas","Halligan","Camara termica"]
-recursosPorClase B  = ["Espuma","Detector gases","Material absorbente"]
-recursosPorClase C  = ["CO2","Guantes dielectricos","Pertiga"]
-recursosPorClase D  = ["Agente D","Arena seca","Contencion termica"]
-recursosPorClase FK = ["Matafuegos K","Mantas ignifugas"]
-
-
 -- CUARTELES (COORDENADAS SIMULADAS)
 
 cuarteles :: [Cuartel]
-cuarteles =
+cuarteles = 
   [ Cuartel "Patricios" Sudeste "Parque Patricios" (1,1) (recursosPorClase A ++ recursosPorClase B) 18 Libre
   , Cuartel "Barracas" Sudeste "Barracas" (2,1) (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C) 20 Libre
   , Cuartel "Destacamento Nueva Pompeya" Sudeste "Nueva Pompeya" (3,4) (recursosPorClase A ++ recursosPorClase B ++ recursosPorClase C ++ recursosPorClase D ++ recursosPorClase FK) 14 Libre
@@ -126,44 +117,46 @@ cuarteles =
       (recursosPorClase C ++ recursosPorClase D ++ recursosPorClase FK)
       20 Ocupado]
 
--- distancia manhattan ideal para entornos urbanos de cuadrícula porque 
---representa la distancia total recorrida  al moverse solo horizontal y 
---verticalmente, evitando cortar por manzana.
+-- RECURSOS POR CLASE
+recursosPorClase :: ClaseIncendio -> [Recurso]
+recursosPorClase A  = ["Mangueras","Lanzas","Halligan","Camara termica"]
+recursosPorClase B  = ["Espuma","Detector gases","Material absorbente"]
+recursosPorClase C  = ["CO2","Guantes dielectricos","Pertiga"]
+recursosPorClase D  = ["Agente D","Arena seca","Contencion termica"]
+recursosPorClase FK = ["Matafuegos K","Mantas ignifugas"]
 
 -- distancia lo que hace es restar las coordenadas del incendio menos la distancia
 -- de las coordenadas de un cuartel y devuelve la distancia a la que estan. 
-distancia :: Coordenada -> Coordenada -> Int
-distancia (x1,y1) (x2,y2) =
-  abs (x1-x2) + abs (y1-y2)
+distanciaEuclideana :: Coordenada -> Coordenada -> Float
+distanciaEuclideana (x1,y1) (x2,y2) =
+  sqrt(((x2-x1)**2) + ((y2-y1)**2))
 
---Si devuelve 0 el cuartel esta disponible, sino devuelve 1
+--Devuelve True Si el cuartel esta libre, false caso contrario
 estadoCuartel :: Cuartel -> Bool 
-estadoCuartel (Cuartel _ _ _ _ _ _ e) =  if e == Libre then True
-                                         else False
+estadoCuartel (Cuartel _ _ _ _ _ _ e) =  e == Libre 
 
 --evalua si todos los recursos de la clase del incendio estan en inventario 
 verificarRecursos :: ClaseIncendio -> Cuartel -> Bool 
-verificarRecursos clase (Cuartel _ _ _ _ inventario _ _) = 
-  all (`elem` inventario) (recursosPorClase clase)
+verificarRecursos clase (Cuartel _ _ _ _ inventario _ _) =  all (\r -> r `elem` inventario) (recursosPorClase clase)
+--devuelve un bool si todos los elementos de r (de los recursos de la clase A) pertenecen al inventario
 
 --calculo la distancia de un cuartel respecto a cierta coordenada
-distanciaCuartel :: Coordenada -> Cuartel -> Int
-distanciaCuartel (x,y) (Cuartel _ _ _ c _ _ _) = distancia (x,y) c
+distanciaCuartel :: Coordenada -> Cuartel -> Float
+distanciaCuartel (x,y) (Cuartel _ _ _ c _ _ _) = distanciaEuclideana (x,y) c
 
-cambiarEstado :: Cuartel -> Cuartel
-cambiarEstado (Cuartel n z b c r p _) =
-  Cuartel n z b c r p Ocupado
+--Cambia el estado de un cuartel 
+cambiarEstado :: Cuartel -> Estado -> Cuartel
+cambiarEstado (Cuartel a b c d e f otroEstado) estado =  Cuartel a b c d e f estado
 
 -- muestra todos cuarteles Libres
 cuartelesDisponibles :: [Cuartel] -> [Cuartel]
-cuartelesDisponibles = filter estadoCuartel
+cuartelesDisponibles cuarteles = filter (estadoCuartel) (cuarteles)
 
 -- filtra los cuarteles que cumplen con la clase del incendio
 cuartelesConRecursos :: ClaseIncendio -> [Cuartel] -> [Cuartel]
-cuartelesConRecursos clase = filter (verificarRecursos clase)
+cuartelesConRecursos clase cuarteles = filter (verificarRecursos clase) cuarteles
 
--- Ordena cada cuartel segun la distancia que devuelve la distancia de tal coordenada
--- con la del cuartel
+-- Ordena cada cuartel segun su distancia respecto de la coordenada de un incendio 
 ordenarPorDistancia :: Coordenada -> [Cuartel] -> [Cuartel]
 ordenarPorDistancia coord =
   sortOn (distanciaCuartel coord) 
@@ -171,25 +164,36 @@ ordenarPorDistancia coord =
 -- selección óptima del mejor cuartel
 mejorCuartel :: Incendio -> [Cuartel] -> Maybe Cuartel
 mejorCuartel (Incendio coord claseInc) cs =
-  case ordenarPorDistancia coord
+  case (ordenarPorDistancia coord
         (cuartelesConRecursos claseInc -- en el caso de que haya cuarteles con 
         --recursos y disp, llama a ordenarPorDistancia coord 
         --(le pasa los cuarteles que cumplieron las 2 caracteristicas y busca el de menor dist)
-        (cuartelesDisponibles cs)) of
+        (cuartelesDisponibles cs))) of
     []    -> Nothing -- Si no hay cuartel optimo: Nothing
     (c:_) -> Just c -- Si hay: Just Cuartel
+  
 
-resolverIncendios :: [Incendio] -> [Cuartel] -> [(Incendio, Maybe Cuartel)]
+resolverIncendios :: [Incendio] -> [Cuartel] -> [(Incendio,Maybe Cuartel)]
+-- liberar los cuarteles
 resolverIncendios [] _ = []
 resolverIncendios (i:is) cs =
-  let elegido = mejorCuartel i cs  --elige el mejor cuartel  
-  in (i, elegido) : resolverIncendios is cs -- y a la par que la construyo llamo recursivamente a la funcion para que evalue el resto de incendios
-  -- construyo una lista de tuplas que se van a leer asi [(Incendio, Maybe Cuartel): resto]
+  case mejorCuartel i cs of
+    Nothing ->
+      (i, Nothing) : resolverIncendios is cs
+
+    Just c ->
+      (i, Just (cambiarEstado c Ocupado))
+      : resolverIncendios is
+          (map (\x -> if x == c
+                      then cambiarEstado x Ocupado
+                      else x) cs)
+
 
 incendiosHoy :: [Incendio]
 incendiosHoy =
   [ Incendio (2,1) A   
-  , Incendio (5,5) C   
-  , Incendio (3,3) B   
-  , Incendio (1,1) B   
-  ]
+  , Incendio (5,5) C
+  , Incendio (3,1) FK  
+  ] 
+
+
